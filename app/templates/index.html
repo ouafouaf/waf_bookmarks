@@ -1,0 +1,256 @@
+{% extends "layout.html" %}
+{% block content %}
+
+
+<div class="row ml-2 mr-2">
+    <div class="col"></div>
+
+    <div class="col-3">
+
+<!-- ---------------- -->
+<!-- OPTION & ADD     -->
+<!-- ---------------- -->        
+
+        <button data-toggle="modal" data-target="#addModal" class="btn btn-primary btn-lg btn-block mb-4">Add a new bookmark</button>
+        
+        <h4>Options:</h4>
+
+        {% for i in links['tags'] %}
+            <p>{{ i['name']}} ({{ i['number'] }})</p>
+        {% endfor %}
+
+        <div><a href="{{ links['orders']['date_asc']['url'] }}">{{ links['orders']['date_asc']['name'] }}</a></div>
+        
+        
+    </div>
+
+<!-- -------------- -->
+<!-- PAGE TITLE     -->
+<!-- -------------- -->      
+
+    <div class="col-8 border-left">
+        <h4>{{ links['number_of_bookmarks_in_query'] }} bookmarks</h4>
+        {% if request.args.get("order") == 'date_asc' %}
+            <h5>Order: by date ascending</h5>
+        {% elif request.args.get("order") == 'name_asc' %}
+            <h4>Bookmarks by title (ascending):</h4>
+        {% elif request.args.get("order") == 'name_desc' %}
+            <h4>Bookmarks by title (descending):</h4>
+        {% else %}
+            <h5>Order: by date descending (default)</h5>
+        {% endif %}
+
+<!-- -------------- -->
+<!-- FLASH DIV      -->
+<!-- -------------- -->        
+
+        <div class="flashwrapper">
+            {% with messages = get_flashed_messages(with_categories=True) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div id=flashwrapper class="alert alert-{{ category }} alert-dismissible col-md-12" role="alert">
+                          {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close" onClick="close('flashwrapper')">
+                        <span aria-hidden="true">&times;</span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+<!-- ------------------- -->
+<!-- PAGINATION TOP      -->
+<!-- ------------------- -->        
+
+        <hr>
+
+        {% if links['pagination']['prev_url'] %}
+        <a href="{{ links['pagination']['prev_url'] }}">Previous page</a>
+        {% endif %}
+        {% if links['pagination']['prev_url'] and links['pagination']['next_url'] %} | {% endif %}
+        {% if links['pagination']['next_url'] %}
+        <a href="{{ links['pagination']['next_url'] }}">Next page</a>
+        {% endif %}
+
+<!-- ------------------- -->
+<!-- BOOKMARKS LOOP      -->
+<!-- ------------------- -->        
+        <hr>
+
+        {% for b in data %}
+        
+        <div id="data{{b.id}}">
+            <div><strong>{{ b.title }}</strong></div>
+            <div><a href="{{ b.url }}">{{ b.url }}</a></div>
+            <div>{{ b.description }}</div>  
+            <span class="badge badge-secondary">{{ b.date|datetimeformat }}</span>
+            <span type="badge" role="button" class="badge badge-info" 
+                data-toggle="modal" data-target="#editModal" 
+                data-id="{{ b.id }}" data-url="{{ b.url }}"
+                data-title="{{ b.title }}" data-description="{{ b.description }}">Edit</span>
+            <span type="badge" role="button" class="badge badge-danger" 
+                data-toggle="modal" data-target="#deleteModal" data-id="{{ b.id }}">Del</span>
+            <hr>
+        </div>
+        {% endfor %}
+
+<!-- ---------------------- -->
+<!-- PAGINATION BOTTOM      -->
+<!-- ---------------------- -->  
+
+        {% if links['pagination']['prev_url'] %}
+        <a href="{{ links['pagination']['prev_url'] }}">Previous page</a>
+        {% endif %}
+        {% if links['pagination']['prev_url'] and links['pagination']['next_url'] %} | {% endif %}
+        {% if links['pagination']['next_url'] %}
+        <a href="{{ links['pagination']['next_url'] }}">Next page</a>
+        {% endif %}
+
+        <hr>
+
+
+    </div>
+    <div class="col"></div>
+
+
+<!-- -------------- -->
+<!-- ADD MODAL      -->
+<!-- -------------- -->
+
+    <div class="modal" id="addModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+            <h5 class="modal-title" id="addModalLabel">Add bookmark</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            </div>
+            <div class="modal-body">
+
+            <form method="POST" action="" autocomplete="off">
+                {{ addform.hidden_tag() }}
+                <div class="form-group row">
+                    <div class="col-12">
+                        {{ addform.url(class="form-control form-control mb-1", placeholder="url (mandatory)") }}
+                        {{ addform.title(class="form-control form-control mb-1", placeholder="title") }}
+                        {{ addform.description(class="form-control mb-1", placeholder="description") }}
+                        {{ addform.add(class="btn btn-primary btn-block") }}
+                    </div>
+                </div>
+            </form>
+
+            </div>
+        </div>
+        </div>
+    </div>
+
+<!-- -------------- -->
+<!-- EDITION MODAL  -->
+<!-- -------------- -->
+    
+    <div class="modal" id="editModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="editModalLabel">Add bookmark</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+
+                <form method="POST" action="" autocomplete="off">
+                    <div class="form-group row">
+                        {{ editform.hidden_tag() }}
+                        <div class="col-12">
+                            {{ editform.url(id="input-url", class="form-control form-control mb-1", placeholder="url (mandatory)") }}
+                            {{ editform.title(id="input-title", class="form-control form-control mb-1", placeholder="title") }}
+                            {{ editform.description(id="input-description", class="form-control mb-1", placeholder="description") }}
+                            {{ editform.myid(id="input-id", class="invisible") }}
+                            {{ editform.edit(class="btn btn-primary btn-block") }}
+                        </div>
+                    </div>
+                </form>
+
+            </div>
+          </div>
+        </div>
+    </div>
+
+
+</div>
+
+<!-- -------------- -->
+<!-- DELETE MODAL   -->
+<!-- -------------- -->
+    
+<div class="modal" id="deleteModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="deleteModalLabel">Are you sure?</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+
+            <form method="POST" action="" autocomplete="off">
+                <div class="form-group row">
+                    {{ deleteform.hidden_tag() }}
+                    <div class="col-12">
+                        {{ deleteform.myid(id="input-id", class="invisible") }}
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        {{ deleteform.delete(class="btn btn-danger") }}
+                    </div>
+                </div>
+            </form>
+
+        </div>
+      </div>
+    </div>
+</div>
+
+
+</div>
+
+
+<!-- --------------------- -->
+<!-- EDITION MODAL SCRIPT  -->
+<!-- --------------------- -->
+
+<script>
+    $('#editModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget) // Button that triggered the modal
+        var id = button.data('id') // Extract info from data-* attributes
+        var url = button.data('url') // Extract info from data-* attributes
+        var title = button.data('title') // Extract info from data-* attributes
+        var description = button.data('description') // Extract info from data-* attributes
+        // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
+        // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+        var modal = $(this)
+        modal.find('.modal-title').text('Edit Bookmark (id: ' + id + ')')
+        modal.find('#input-title').val(title)
+        modal.find('#input-url').val(url)
+        modal.find('#input-description').val(description)
+        modal.find('#input-id').val(id)
+    })
+</script>
+
+<!-- --------------------- -->
+<!-- DELETE MODAL SCRIPT   -->
+<!-- --------------------- -->
+
+<script>
+    $('#deleteModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget) // Button that triggered the modal
+        var id = button.data('id') // Extract info from data-* attributes
+        // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
+        // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+        var modal = $(this)
+        modal.find('#input-id').val(id)
+    })
+</script>
+
+{% endblock content %}
