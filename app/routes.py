@@ -1,8 +1,8 @@
 from flask import render_template, request, redirect, flash, url_for
 from app import app, db
 from app.models import Bookmark
-from app.forms import PostBookmarkForm, EditBookmarkForm, DeleteBookmarkForm
-from app.helpers import get_parameters, build_query, create_links
+from app.forms import PostBookmarkForm, EditBookmarkForm, DeleteBookmarkForm, SearchForm
+from app.helpers import get_parameters, build_query, create_pagedata
 import datetime
 
 @app.template_filter()
@@ -19,6 +19,7 @@ def index():
     addform = PostBookmarkForm()
     editform = EditBookmarkForm()
     deleteform = DeleteBookmarkForm()
+    searchform = SearchForm()
     
     # Add entry:
     if addform.validate() and "add" in request.form:
@@ -51,17 +52,28 @@ def index():
         flash(f"Deleted: {my_bookmark.url}", 'danger')
         return redirect(request.url)
 
+    # Perform Search:
+    # if 'search' in params and params['search'] is not None:
+    #     return f"{params['search']}"
+    if searchform.validate() and "submit_search" in request.form:
+        params['search'] = searchform.search.data
+        return redirect(url_for('index', 
+                search=params['search'],
+                page=params['page'],
+                order=params['order'],
+                tag=params['tag'],
+                ))
+
     # Build sql query:
     query = build_query(params)
     page = request.args.get('page', 1, type=int)
-    paginate_query = query.paginate(page,5,False)
+    paginate_query = query.paginate(page,app.config['ITEM_PER_PAGE'],False)
 
-    # Build links
-    links = create_links(query, params)
+    # Build pagedata
+    pagedata = create_pagedata(query, params)
 
-    # return links
  
     return render_template("index.html", data=paginate_query.items, addform=addform, 
                                          editform=editform, deleteform=deleteform, 
-                                         links=links)
+                                         searchform=searchform, pagedata=pagedata)
 
