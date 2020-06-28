@@ -10,4 +10,6 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///' + os.path.join(basedir, 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FLASK_DEBUG = True
-    ITEM_PER_PAGE = 20
+
+    ITEM_PER_PAGE = 10
+    WEBSITE_NAME = "Waf Bookmarks"

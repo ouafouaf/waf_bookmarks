@@ -52,6 +52,8 @@
                     Order by: 
                     {% if pagedata['orders']['date_desc']['is_active'] == True %}
                         newest first          
+                    {% elif pagedata['parameters'].get('order') == None %}
+                        newest first          
                     {% else %}
                         <a href="{{ pagedata['orders']['date_desc']['url'] }}">
                             newest first
@@ -85,9 +87,9 @@
                 <div class="row">
                     <div class="col-5 text-right">Active tag:</div>
                     <div class="col-7 text-left pl-0">
-                        <a class="text-danger" href=""><i class="fa fa-times" aria-hidden="true"></i></a>
+                        <a class="text-danger" href="{{ pagedata['tags_active'][0]['cancel_link'] }}"><i class="fa fa-times" aria-hidden="true"></i></a>
                         {{ pagedata['parameters']['tag'] }} 
-                        
+                    <span role="button" class="text-danger" data-toggle="modal" data-target="#deletetagModal" data-tagname="{{ pagedata['parameters']['tag'] }}">[delete tag]</span>
                     </div>
                 </div>
                 {% endif %}
@@ -113,14 +115,35 @@
         <div class="row border mr-2 ml-2">
             <div class="col-12 bg-light text-center">
                 <span class="font-weight-bold">Tags</span>
-                <span class="font-weight-light font-italic">
-                    (by number / alphabetical)
+                <span class="font-weight-light">
+                    (
+                    {%- if pagedata['parameters'].get('tags_order') == 'number' -%}
+                        by number     
+                    {%- elif pagedata['parameters'].get('tags_order') == None -%}    
+                        by number   
+                    {%- else -%}
+                        <a href="{{ pagedata['tags_order']['number'] }}">by number</a>
+                    {% endif %} 
+                     / 
+                    {% if pagedata['parameters'].get('tags_order') == 'alpha' %}
+                        alphabetical        
+                    {%- else -%}
+                        <a href="{{ pagedata['tags_order']['alpha'] }}">alphabetical</a>
+                    {%- endif -%} 
+                    )
                 </span>
             </div>
             <div class="col"></div>
-            <div class="col-10 text-center">
+            <div class="col-10 text-center pb-4 pt-2">
 
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                {% for tag in pagedata['tags'] -%}
+                    <span style="white-space: nowrap;">
+                    <a href="{{ tag['link'] }}">{{ tag['name'] }}</a>
+                    ({{ tag['number'] }})
+                    {%- if not loop.last %}, {% endif %}
+                    </span>
+                    <!-- {{- ", " if not loop.last -}} -->
+                {%- endfor %}
 
             </div>
             <div class="col"></div>
@@ -172,9 +195,16 @@
             <span type="badge" role="button" class="badge badge-info" 
                 data-toggle="modal" data-target="#editModal" 
                 data-id="{{ b.id }}" data-url="{{ b.url }}"
-                data-title="{{ b.title }}" data-description="{{ b.description }}">Edit</span>
+                data-title="{{ b.title }}" data-description="{{ b.description }}"
+                data-tags="{{ b.tags | map(attribute='name') | list|join(', ') }}">Edit</span>
             <span type="badge" role="button" class="badge badge-danger" 
                 data-toggle="modal" data-target="#deleteModal" data-id="{{ b.id }}">Del</span>
+            <span class="invisible">...</span>
+            {% for t in b.tags %}
+                <span type="badge" role="button" class="badge badge-secondary">
+                    <a class="text-white" href="{{ url_for('index', search=pagedata['parameters']['search'], page=pagedata['parameters']['page'], order=pagedata['parameters']['order'], tag=t.name, tags_order=pagedata['parameters']['tags_order']) }}">{{ t.name }}</a>
+                </span>
+            {% endfor %}
             <hr>
         </div>
         {% endfor %}
@@ -189,9 +219,8 @@
         {% if pagedata['pagination']['prev_url'] and pagedata['pagination']['next_url'] %} | {% endif %}
         {% if pagedata['pagination']['next_url'] %}
         <a href="{{ pagedata['pagination']['next_url'] }}">Next page</a>
-        {% endif %}
-
         <hr>
+        {% endif %}
 
 
     </div>
@@ -220,6 +249,7 @@
                         {{ addform.url(class="form-control form-control mb-1", pattern="https?://.+", placeholder="url (mandatory)") }}
                         {{ addform.title(class="form-control form-control mb-1", placeholder="title") }}
                         {{ addform.description(class="form-control mb-1", placeholder="description") }}
+                        {{ addform.tags(class="form-control form-control mb-1", placeholder="tags (comma separated") }}
                         {{ addform.add(class="btn btn-primary btn-block") }}
                     </div>
                 </div>
@@ -252,6 +282,7 @@
                             {{ editform.url(id="input-url", class="form-control form-control mb-1", pattern="https?://.+", placeholder="url (mandatory)") }}
                             {{ editform.title(id="input-title", class="form-control form-control mb-1", placeholder="title") }}
                             {{ editform.description(id="input-description", class="form-control mb-1", placeholder="description") }}
+                            {{ editform.tags(id="input-tags", class="form-control form-control mb-1", placeholder="tags (comma separated)") }}
                             {{ editform.myid(id="input-id", class="invisible") }}
                             {{ editform.edit(class="btn btn-primary btn-block") }}
                         </div>
@@ -274,7 +305,7 @@
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="deleteModalLabel">Are you sure?</h5>
+          <h5 class="modal-title" id="deleteModalLabel">Delete bookmark from database?</h5>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
@@ -286,8 +317,45 @@
                     {{ deleteform.hidden_tag() }}
                     <div class="col-12">
                         {{ deleteform.myid(id="input-id", class="invisible") }}
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                         {{ deleteform.delete(class="btn btn-danger") }}
+                    </div>
+                </div>
+            </form>
+
+        </div>
+      </div>
+    </div>
+</div>
+
+
+</div>
+
+
+
+<!-- ------------------ -->
+<!-- DELETE TAG MODAL   -->
+<!-- ------------------ -->
+
+    
+<div class="modal" id="deletetagModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="deletetagModalLabel">Delete tag <strong>{{- pagedata['parameters']['tag'] -}}</strong> from database ?</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+
+            <form method="POST" action="" autocomplete="off">
+                <div class="form-group row">
+                    {{ deletetagform.hidden_tag() }}
+                    <div class="col-12">
+                        {{ deletetagform.tagname(id="input-tagname", class="invisible") }}
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        {{ deletetagform.delete_tag(class="btn btn-danger") }}
                     </div>
                 </div>
             </form>
@@ -308,10 +376,11 @@
 <script>
     $('#editModal').on('show.bs.modal', function (event) {
         var button = $(event.relatedTarget) // Button that triggered the modal
-        var id = button.data('id') // Extract info from data-* attributes
-        var url = button.data('url') // Extract info from data-* attributes
-        var title = button.data('title') // Extract info from data-* attributes
-        var description = button.data('description') // Extract info from data-* attributes
+        var id = button.data('id') 
+        var url = button.data('url') 
+        var title = button.data('title') 
+        var description = button.data('description') 
+        var tags = button.data('tags') 
         // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
         // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
         var modal = $(this)
@@ -319,6 +388,7 @@
         modal.find('#input-title').val(title)
         modal.find('#input-url').val(url)
         modal.find('#input-description').val(description)
+        modal.find('#input-tags').val(tags)
         modal.find('#input-id').val(id)
     })
 </script>
@@ -335,6 +405,21 @@
         // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
         var modal = $(this)
         modal.find('#input-id').val(id)
+    })
+</script>
+
+<!-- ------------------------- -->
+<!-- DELETE TAG MODAL SCRIPT   -->
+<!-- ------------------------- -->
+
+<script>
+    $('#deletetagModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget) // Button that triggered the modal
+        var tagname = button.data('tagname') // Extract info from data-* attributes
+        // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
+        // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+        var modal = $(this)
+        modal.find('#input-tagname').val(tagname)
     })
 </script>
 
